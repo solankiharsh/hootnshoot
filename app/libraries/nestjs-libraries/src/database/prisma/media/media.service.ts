@@ -1,3 +1,4 @@
+import { resolveOrgApiKey } from '@gitroom/nestjs-libraries/org-api-keys/org-api-key.store';
 import { HttpException, Injectable } from '@nestjs/common';
 import { MediaRepository } from '@gitroom/nestjs-libraries/database/prisma/media/media.repository';
 import { OpenaiService } from '@gitroom/nestjs-libraries/openai/openai.service';
@@ -30,11 +31,12 @@ export class MediaService {
     private _videoManager: VideoManager
   ) {}
 
-  async editImage(imageDataUrl: string, prompt: string) {
-    const googleApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  async editImage(imageDataUrl: string, prompt: string, orgId?: string) {
+    // BYOK: org-scoped Gemini key from Settings → API Keys, env fallback
+    const googleApiKey = await resolveOrgApiKey('gemini', orgId);
     if (!googleApiKey) {
       throw new HttpException(
-        'GEMINI_API_KEY (or GOOGLE_API_KEY) is not configured for AI image edit',
+        'No Gemini API key available — add one in Settings → API Keys, or set GEMINI_API_KEY in the server environment',
         503
       );
     }
@@ -88,10 +90,14 @@ export class MediaService {
     return { base64: imagePart.inlineData.data };
   }
 
-  async eraseImage(imageDataUrl: string, maskDataUrl: string) {
-    const token = process.env.REPLICATE_API_TOKEN;
+  async eraseImage(imageDataUrl: string, maskDataUrl: string, orgId?: string) {
+    // BYOK: org-scoped Replicate key from Settings → API Keys, env fallback
+    const token = await resolveOrgApiKey('replicate', orgId);
     if (!token) {
-      throw new HttpException('REPLICATE_API_TOKEN is not configured for AI erase', 503);
+      throw new HttpException(
+        'No Replicate API token available — add one in Settings → API Keys, or set REPLICATE_API_TOKEN in the server environment',
+        503
+      );
     }
 
     decodeBase64Image(imageDataUrl);
@@ -199,10 +205,10 @@ export class MediaService {
       'ai_images',
       async () => {
         if (generatePromptFirst) {
-          prompt = await this._openAi.generatePromptForPicture(prompt);
+          prompt = await this._openAi.generatePromptForPicture(prompt, org.id);
           console.log('Prompt:', prompt);
         }
-        return this._openAi.generateImage(prompt, !!generatePromptFirst);
+        return this._openAi.generateImage(prompt, !!generatePromptFirst, false, org.id);
       }
     );
 

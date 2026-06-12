@@ -224,7 +224,7 @@ export class MediaController {
     @Body('imageDataUrl') imageDataUrl: string,
     @Body('prompt') prompt: string
   ) {
-    return this._mediaService.editImage(imageDataUrl, prompt);
+    return this._mediaService.editImage(imageDataUrl, prompt, org.id);
   }
 
   @Post('/erase-image')
@@ -233,7 +233,7 @@ export class MediaController {
     @Body('image') image: string,
     @Body('mask') mask: string
   ) {
-    return this._mediaService.eraseImage(image, mask);
+    return this._mediaService.eraseImage(image, mask, org.id);
   }
 
   @Post('/save-template')
@@ -271,6 +271,7 @@ export class MediaController {
 
   @Post('/translate-text')
   async translateText(
+    @GetOrgFromRequest() org: Organization,
     @Body('text') text: string,
     @Body('targetLanguage') targetLanguage: string
   ) {
@@ -278,7 +279,7 @@ export class MediaController {
       throw new BadRequestException('text and targetLanguage are required');
     }
     const languageName = LANGUAGE_NAMES[targetLanguage.toUpperCase()] ?? targetLanguage;
-    const response = await this._openAi.translateText(text, languageName);
+    const response = await this._openAi.translateText(text, languageName, org.id);
     return { response };
   }
 

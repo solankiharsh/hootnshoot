@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { resolveOrgApiKey } from '@gitroom/nestjs-libraries/org-api-keys/org-api-key.store';
 import {
   BaseMessage,
   HumanMessage,
@@ -23,16 +24,22 @@ const tools = !process.env.TAVILY_API_KEY
   : [new TavilySearch({ maxResults: 3 })];
 const toolNode = new ToolNode(tools);
 
-const model = new ChatOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-  model: 'gpt-4.1',
-  temperature: 0.7,
-});
+// BYOK: clients are created per call so each organization's own OpenAI key
+// (Settings → API Keys) is used, with OPENAI_API_KEY as the env fallback.
+async function getModel(orgId?: string) {
+  return new ChatOpenAI({
+    apiKey: (await resolveOrgApiKey('openai', orgId)) || 'sk-proj-',
+    model: 'gpt-4.1',
+    temperature: 0.7,
+  });
+}
 
-const dalle = new DallEAPIWrapper({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-  model: 'dall-e-3',
-});
+async function getDalle(orgId?: string) {
+  return new DallEAPIWrapper({
+    apiKey: (await resolveOrgApiKey('openai', orgId)) || 'sk-proj-',
+    model: 'dall-e-3',
+  });
+}
 
 interface WorkflowChannelsState {
   messages: BaseMessage[];
@@ -137,7 +144,7 @@ export class AgentGraphService {
     });
 
   async startCall(state: WorkflowChannelsState) {
-    const runTools = model.bindTools(tools);
+    const runTools = (await getModel(state.orgId)).bindTools(tools);
     const response = await ChatPromptTemplate.fromTemplate(
       `
     Today is ${dayjs().format()}, You are an assistant that gets a social media post or requests for a social media post.
@@ -161,7 +168,7 @@ export class AgentGraphService {
 
   async findCategories(state: WorkflowChannelsState) {
     const allCategories = await this._postsService.findAllExistingCategories();
-    const structuredOutput = model.withStructuredOutput(category);
+    const structuredOutput = (await getModel(state.orgId)).withStructuredOutput(category);
     const { category: outputCategory } = await ChatPromptTemplate.fromTemplate(
       `
         You are an assistant that gets a text that will be later summarized into a social media post
@@ -188,7 +195,7 @@ export class AgentGraphService {
       return { topic: null };
     }
 
-    const structuredOutput = model.withStructuredOutput(topic);
+    const structuredOutput = (await getModel(state.orgId)).withStructuredOutput(topic);
     const { topic: outputTopic } = await ChatPromptTemplate.fromTemplate(
       `
         You are an assistant that gets a text that will be later summarized into a social media post
@@ -216,7 +223,7 @@ export class AgentGraphService {
   }
 
   async generateHook(state: WorkflowChannelsState) {
-    const structuredOutput = model.withStructuredOutput(hook);
+    const structuredOutput = (await getModel(state.orgId)).withStructuredOutput(hook);
     const { hook: outputHook } = await ChatPromptTemplate.fromTemplate(
       `
         You are an assistant that gets content for a social media post, and generate only the hook.
@@ -258,7 +265,7 @@ export class AgentGraphService {
   }
 
   async generateContent(state: WorkflowChannelsState) {
-    const structuredOutput = model.withStructuredOutput(
+    const structuredOutput = (await getModel(state.orgId)).withStructuredOutput(
       contentZod(!!state.isPicture, state.format)
     );
     const { content: outputContent } = await ChatPromptTemplate.fromTemplate(
@@ -341,7 +348,7 @@ export class AgentGraphService {
           }
         }
         // DALL-E fallback
-        const image = await dalle.invoke(p.prompt!);
+        const image = await (await getDalle(state.orgId)).invoke(p.prompt!);
         return { ...p, image };
       })
     );

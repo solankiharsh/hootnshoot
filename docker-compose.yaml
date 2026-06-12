@@ -20,11 +20,20 @@ services:
       IS_GENERAL: ${IS_GENERAL:-true}
       DISABLE_REGISTRATION: ${DISABLE_REGISTRATION:-false}
       RUN_CRON: ${RUN_CRON:-true}
-      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-supabase}
-      SUPABASE_URL: ${SUPABASE_URL}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
-      SUPABASE_STORAGE_BUCKET: ${SUPABASE_STORAGE_BUCKET}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      UPLOAD_DIRECTORY: ${UPLOAD_DIRECTORY:-/uploads}
+      NEXT_PUBLIC_UPLOAD_DIRECTORY: ${NEXT_PUBLIC_UPLOAD_DIRECTORY:-/uploads}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      SUPABASE_STORAGE_BUCKET: ${SUPABASE_STORAGE_BUCKET:-}
       SUPABASE_BRAND_ASSETS_BUCKET: ${SUPABASE_BRAND_ASSETS_BUCKET:-assets}
+      # Cloudflare R2 storage (when STORAGE_PROVIDER=cloudflare)
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+      CLOUDFLARE_ACCESS_KEY: ${CLOUDFLARE_ACCESS_KEY:-}
+      CLOUDFLARE_SECRET_ACCESS_KEY: ${CLOUDFLARE_SECRET_ACCESS_KEY:-}
+      CLOUDFLARE_BUCKETNAME: ${CLOUDFLARE_BUCKETNAME:-}
+      CLOUDFLARE_BUCKET_URL: ${CLOUDFLARE_BUCKET_URL:-}
+      CLOUDFLARE_REGION: ${CLOUDFLARE_REGION:-auto}
       MASTODON_URL: ${MASTODON_URL:-https://mastodon.social}
       API_LIMIT: ${API_LIMIT:-30}
       NX_ADD_PLUGINS: ${NX_ADD_PLUGINS:-false}
@@ -35,7 +44,9 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       NOT_SECURED: ${NOT_SECURED:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      # Late API — required for instagram-late, facebook-late, x-late, tiktok-late, etc.
+      REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-}
+      # Late API — optional server-wide fallback; each organization can instead
+      # bring its own key via Settings → API Keys (BYOK)
       LATE_API_KEY: ${LATE_API_KEY:-}
       LATE_API_URL: ${LATE_API_URL:-https://getlate.dev/api/v1}
       # Social OAuth credentials
@@ -136,6 +147,21 @@ services:
     depends_on:
       - temporal-postgresql
       - temporal-elasticsearch
+
+  # Cloudflare Tunnel — exposes the app on your own domain with no open ports.
+  # Create a tunnel in the Cloudflare Zero Trust dashboard, point its public
+  # hostname at http://hootnshoot:5000, set CLOUDFLARE_TUNNEL_TOKEN in .env,
+  # then run: docker compose --profile tunnel up -d
+  # See docs/deploy-cloudflare.md
+  cloudflared:
+    container_name: hootnshoot-cloudflared
+    image: cloudflare/cloudflared:latest
+    profiles:
+      - tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - hootnshoot
 
   datadog-agent:
     image: gcr.io/datadoghq/agent:7

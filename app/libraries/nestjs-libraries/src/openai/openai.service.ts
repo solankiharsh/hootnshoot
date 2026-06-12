@@ -1,13 +1,18 @@
 import { HttpException, Injectable } from '@nestjs/common';
+import { resolveOrgApiKey } from '@gitroom/nestjs-libraries/org-api-keys/org-api-key.store';
 import OpenAI from 'openai';
 import { shuffle } from 'lodash';
 import { zodResponseFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
 
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
+async function getOpenAIClient(orgId?: string) {
+  // BYOK: org-scoped key from Settings → API Keys, falling back to OPENAI_API_KEY
+  const apiKey = await resolveOrgApiKey('openai', orgId);
   if (!apiKey) {
-    throw new HttpException('OPENAI_API_KEY is not configured for AI image generation', 503);
+    throw new HttpException(
+      'No OpenAI API key available — add one in Settings → API Keys, or set OPENAI_API_KEY in the server environment',
+      503
+    );
   }
   return new OpenAI({ apiKey });
 }
@@ -22,8 +27,8 @@ const VoicePrompt = z.object({
 
 @Injectable()
 export class OpenaiService {
-  async translateText(text: string, targetLanguageName: string): Promise<string> {
-    const openai = getOpenAIClient();
+  async translateText(text: string, targetLanguageName: string, orgId?: string): Promise<string> {
+    const openai = await getOpenAIClient(orgId);
     const completion = await openai.chat.completions.create({
       model: 'gpt-4.1-mini',
       messages: [
@@ -37,8 +42,8 @@ export class OpenaiService {
     return completion.choices[0].message.content?.trim() ?? text;
   }
 
-  async generateImage(prompt: string, _isUrl?: boolean, isVertical = false) {
-    const openai = getOpenAIClient();
+  async generateImage(prompt: string, _isUrl?: boolean, isVertical = false, orgId?: string) {
+    const openai = await getOpenAIClient(orgId);
     const model = process.env.OPENAI_IMAGE_MODEL?.trim() || 'gpt-image-1';
     const result = await openai.images.generate({
       prompt,
@@ -53,8 +58,8 @@ export class OpenaiService {
     return b64;
   }
 
-  async generatePromptForPicture(prompt: string) {
-    const openai = getOpenAIClient();
+  async generatePromptForPicture(prompt: string, orgId?: string) {
+    const openai = await getOpenAIClient(orgId);
     return (
       (
         await openai.chat.completions.parse({
@@ -75,8 +80,8 @@ export class OpenaiService {
     );
   }
 
-  async generateVoiceFromText(prompt: string) {
-    const openai = getOpenAIClient();
+  async generateVoiceFromText(prompt: string, orgId?: string) {
+    const openai = await getOpenAIClient(orgId);
     return (
       (
         await openai.chat.completions.parse({
@@ -97,8 +102,8 @@ export class OpenaiService {
     );
   }
 
-  async generatePosts(content: string) {
-    const openai = getOpenAIClient();
+  async generatePosts(content: string, orgId?: string) {
+    const openai = await getOpenAIClient(orgId);
     const posts = (
       await Promise.all([
         openai.chat.completions.create({
@@ -156,8 +161,8 @@ export class OpenaiService {
       })
     );
   }
-  async extractWebsiteText(content: string) {
-    const openai = getOpenAIClient();
+  async extractWebsiteText(content: string, orgId?: string) {
+    const openai = await getOpenAIClient(orgId);
     const websiteContent = await openai.chat.completions.create({
       messages: [
         {
@@ -178,8 +183,8 @@ export class OpenaiService {
     return this.generatePosts(articleContent!);
   }
 
-  async separatePosts(content: string, len: number) {
-    const openai = getOpenAIClient();
+  async separatePosts(content: string, len: number, orgId?: string) {
+    const openai = await getOpenAIClient(orgId);
     const SeparatePostsPrompt = z.object({
       posts: z.array(z.string()),
     });
@@ -253,8 +258,8 @@ export class OpenaiService {
     };
   }
 
-  async generateSlidesFromText(text: string) {
-    const openai = getOpenAIClient();
+  async generateSlidesFromText(text: string, orgId?: string) {
+    const openai = await getOpenAIClient(orgId);
     for (let i = 0; i < 3; i++) {
       try {
         const message = `You are an assistant that takes a text and break it into slides, each slide should have an image prompt and voice text to be later used to generate a video and voice, image prompt should capture the essence of the slide and also have a back dark gradient on top, image prompt should not contain text in the picture, generate between 3-5 slides maximum`;

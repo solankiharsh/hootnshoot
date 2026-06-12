@@ -19,6 +19,7 @@ import { TypedSearchAttributes } from '@temporalio/common';
 import {
   organizationId,
 } from '@gitroom/nestjs-libraries/temporal/temporal.search.attribute';
+import { resolveOrgApiKey } from '@gitroom/nestjs-libraries/org-api-keys/org-api-key.store';
 const parser = new Parser();
 
 interface WorkflowChannelsState {
@@ -35,16 +36,22 @@ interface WorkflowChannelsState {
   };
 }
 
-const model = new ChatOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-  model: 'gpt-4.1',
-  temperature: 0.7,
-});
+// BYOK: clients are created per call so each organization's own OpenAI key
+// (Settings → API Keys) is used, with OPENAI_API_KEY as the env fallback.
+async function getModel(orgId?: string) {
+  return new ChatOpenAI({
+    apiKey: (await resolveOrgApiKey('openai', orgId)) || 'sk-proj-',
+    model: 'gpt-4.1',
+    temperature: 0.7,
+  });
+}
 
-const dalle = new DallEAPIWrapper({
-  apiKey: process.env.OPENAI_API_KEY || 'sk-proj-',
-  model: 'gpt-image-1',
-});
+async function getDalle(orgId?: string) {
+  return new DallEAPIWrapper({
+    apiKey: (await resolveOrgApiKey('openai', orgId)) || 'sk-proj-',
+    model: 'gpt-image-1',
+  });
+}
 
 const generateContent = z.object({
   socialMediaPostContent: z
@@ -215,6 +222,7 @@ export class AutopostService {
       };
     }
 
+    const model = await getModel(state.body?.organizationId);
     const structuredOutput = model.withStructuredOutput(generateContent);
     const { socialMediaPostContent } = await ChatPromptTemplate.fromTemplate(
       `
@@ -242,6 +250,7 @@ export class AutopostService {
   }
 
   async generatePicture(state: WorkflowChannelsState) {
+    const model = await getModel(state.body?.organizationId);
     const structuredOutput = model.withStructuredOutput(dallePrompt);
     const { generatedTextToBeSentToDallE } =
       await ChatPromptTemplate.fromTemplate(
@@ -257,7 +266,7 @@ export class AutopostService {
           content: state.load.description || state.description,
         });
 
-    const image = await dalle.invoke(generatedTextToBeSentToDallE);
+    const image = await (await getDalle(state.body?.organizationId)).invoke(generatedTextToBeSentToDallE);
 
     return { ...state, image };
   }
