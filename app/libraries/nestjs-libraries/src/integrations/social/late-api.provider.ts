@@ -7,7 +7,12 @@ import {
 } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import { SocialAbstract } from '@gitroom/nestjs-libraries/integrations/social.abstract';
 import { Integration } from '@prisma/client';
-import { getLateApiInstance, getOrCreateSharedProfile } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
+import {
+  getLateApi,
+  getOrCreateProfile,
+  LateApiService,
+} from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
+import { ClientInformation } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 
 export abstract class LateApiProvider extends SocialAbstract implements SocialProvider {
   abstract identifier: string;
@@ -15,7 +20,7 @@ export abstract class LateApiProvider extends SocialAbstract implements SocialPr
   // Late API platform name (e.g. 'twitter', 'instagram', 'tiktok')
   abstract latePlatform: string;
   // Method on LateApiService that returns the OAuth URL (state is passed through for Redis keying)
-  abstract getConnectUrl(profileId: string, redirectUrl: string, state: string): Promise<string>;
+  abstract getConnectUrl(api: LateApiService, profileId: string, redirectUrl: string, state: string): Promise<string>;
 
   isBetweenSteps = false;
   editor = 'normal' as const;
@@ -25,20 +30,21 @@ export abstract class LateApiProvider extends SocialAbstract implements SocialPr
     return 2200;
   }
 
-  async generateAuthUrl() {
+  async generateAuthUrl(_clientInformation?: ClientInformation, organizationId?: string) {
     const redirectUrl = `${process.env.FRONTEND_URL}/integrations/social/${this.identifier}`;
-    // All connections share one Late API profile (single profileId, reused not re-created).
+    // Connections share one Late API profile per key (reused, not re-created).
     // state = lateProfileId because Late API echoes back `profileId` in the callback URL,
     // so the frontend maps searchParams.profileId → state for the Redis org lookup.
     // codeVerifier = lateProfileId so authenticate() can call getAccounts(profileId).
-    const lateProfileId = await getOrCreateSharedProfile();
-    const authUrl = await this.getConnectUrl(lateProfileId, redirectUrl, lateProfileId);
+    const api = await getLateApi(organizationId);
+    const lateProfileId = await getOrCreateProfile(organizationId);
+    const authUrl = await this.getConnectUrl(api, lateProfileId, redirectUrl, lateProfileId);
     return { url: authUrl, codeVerifier: lateProfileId, state: lateProfileId };
   }
 
   // params.code = Late API accountId from callback; params.codeVerifier = lateProfileId
-  async authenticate(params: { code: string; codeVerifier: string; refresh?: string }): Promise<AuthTokenDetails> {
-    const accounts = await getLateApiInstance().getAccounts(params.codeVerifier);
+  async authenticate(params: { code: string; codeVerifier: string; refresh?: string; organizationId?: string }): Promise<AuthTokenDetails> {
+    const accounts = await (await getLateApi(params.organizationId)).getAccounts(params.codeVerifier);
     // Use params.code as accountId when present; fall back to the first account in this profile
     const account = (params.code ? accounts.find((a) => a._id === params.code) : null) ?? accounts[0];
     const lateAccountId = account?._id || params.code;
@@ -74,9 +80,10 @@ export abstract class LateApiProvider extends SocialAbstract implements SocialPr
     postDetails: PostDetails[],
     _integration: Integration
   ): Promise<PostResponse[]> {
+    const api = await getLateApi(_integration.organizationId);
     return Promise.all(
       postDetails.map(async (p) => {
-        const result = await getLateApiInstance().createPost({
+        const result = await api.createPost({
           platforms: [
             {
               platform: this.latePlatform,
@@ -105,9 +112,9 @@ export abstract class LateApiProvider extends SocialAbstract implements SocialPr
     );
   }
 
-  async analytics(id: string, _accessToken: string, date: number): Promise<AnalyticsData[]> {
+  async analytics(id: string, _accessToken: string, date: number, organizationId?: string): Promise<AnalyticsData[]> {
     try {
-      const raw = await getLateApiInstance().getAccountInsights(id, date);
+      const raw = await (await getLateApi(organizationId)).getAccountInsights(id, date);
       return this.normalizeAccountAnalytics(raw);
     } catch {
       return [];
@@ -119,9 +126,10 @@ export abstract class LateApiProvider extends SocialAbstract implements SocialPr
     accessToken: string,
     postId: string,
     fromDate: number,
+    organizationId?: string,
   ): Promise<AnalyticsData[]> {
     try {
-      const raw = await getLateApiInstance().getPostInsights(accessToken, fromDate);
+      const raw = await (await getLateApi(organizationId)).getPostInsights(accessToken, fromDate);
       const post = (raw?.posts ?? []).find(
         (p: any) => p.platformPostId === postId || p.id === postId
       );

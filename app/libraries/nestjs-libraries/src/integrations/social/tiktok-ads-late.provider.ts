@@ -1,5 +1,5 @@
 import { LateApiProvider } from '@gitroom/nestjs-libraries/integrations/social/late-api.provider';
-import { getLateApiInstance } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
+import { LateApiService } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
 
 export class TiktokAdsLateProvider extends LateApiProvider {
   identifier = 'tiktok-ads-late';
@@ -12,7 +12,7 @@ export class TiktokAdsLateProvider extends LateApiProvider {
     return 2200;
   }
 
-  getConnectUrl(profileId: string, redirectUrl: string, state: string) {
-    return getLateApiInstance().getTikTokAdsConnectUrl(profileId, redirectUrl, state);
+  getConnectUrl(api: LateApiService, profileId: string, redirectUrl: string, state: string) {
+    return api.getTikTokAdsConnectUrl(profileId, redirectUrl, state);
   }
 }

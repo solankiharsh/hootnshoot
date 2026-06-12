@@ -11,6 +11,8 @@ export interface IAuthenticator {
       code: string;
       codeVerifier: string;
       refresh?: string;
+      // BYOK: lets providers resolve org-scoped API keys (used by -late providers)
+      organizationId?: string;
     },
     clientInformation?: ClientInformation
   ): Promise<AuthTokenDetails | string>;
@@ -21,18 +23,21 @@ export interface IAuthenticator {
     accessToken: string
   ): Promise<Omit<AuthTokenDetails, 'refreshToken' | 'expiresIn'>>;
   generateAuthUrl(
-    clientInformation?: ClientInformation
+    clientInformation?: ClientInformation,
+    organizationId?: string
   ): Promise<GenerateAuthUrlResponse>;
   analytics?(
     id: string,
     accessToken: string,
-    date: number
+    date: number,
+    organizationId?: string
   ): Promise<AnalyticsData[]>;
   postAnalytics?(
     integrationId: string,
     accessToken: string,
     postId: string,
     fromDate: number,
+    organizationId?: string
   ): Promise<AnalyticsData[]>;
   changeNickname?(
     id: string,

@@ -40,7 +40,7 @@ import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integration
 import { PrismaService } from '@gitroom/nestjs-libraries/database/prisma/prisma.service';
 import { createDatadogLogger } from '@gitroom/nestjs-libraries/observability/datadog.logger';
 import { isComplianceEnabled } from '@gitroom/nestjs-libraries/compliance/compliance.config';
-import { getLateApiInstance } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
+import { getLateApi } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
 
 const logger = createDatadogLogger({ service: 'backend', component: 'posts' });
 
@@ -246,7 +246,8 @@ export class PostsService {
         getIntegration.internalId,
         getIntegration.token,
         post.releaseId,
-        date
+        date,
+        getIntegration.organizationId
       );
       await ioRedis.set(
         `integration:${orgId}:${post.id}:${date}`,
@@ -301,7 +302,7 @@ export class PostsService {
     }
 
     try {
-      const result = await getLateApiInstance().getPostAnalyticsTimeline(
+      const result = await (await getLateApi(getIntegration.organizationId)).getPostAnalyticsTimeline(
         post.releaseId
       );
       return Array.isArray(result?.timeline)
@@ -939,8 +940,8 @@ export class PostsService {
     return postList;
   }
 
-  async separatePosts(content: string, len: number) {
-    return this._openaiService.separatePosts(content, len);
+  async separatePosts(content: string, len: number, orgId?: string) {
+    return this._openaiService.separatePosts(content, len, orgId);
   }
 
   async changeState(id: string, state: State, err?: any, body?: any) {

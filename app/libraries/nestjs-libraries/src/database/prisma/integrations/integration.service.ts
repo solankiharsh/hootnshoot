@@ -25,7 +25,7 @@ import utc from 'dayjs/plugin/utc';
 import { AutopostRepository } from '@gitroom/nestjs-libraries/database/prisma/autopost/autopost.repository';
 import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
 import { TemporalService } from 'nestjs-temporal-core';
-import { getLateApiInstance } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
+import { getLateApi } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
 
 dayjs.extend(utc);
 
@@ -416,7 +416,8 @@ export class IntegrationService {
         const loadAnalytics = await integrationProvider.analytics(
           getIntegration.internalId,
           getIntegration.token,
-          +date
+          +date,
+          org.id
         );
         console.log(`[checkAnalytics] analytics returned ${Array.isArray(loadAnalytics) ? loadAnalytics.length : '?'} items`);
         // Fire-and-forget cache write — don't let a slow Redis block the response.
@@ -509,7 +510,7 @@ export class IntegrationService {
     }
 
     try {
-      const late = getLateApiInstance();
+      const late = await getLateApi(getIntegration.organizationId);
       let payload: any = [];
       if (type === 'best-time') {
         payload = await late.getBestTimeToPost(getIntegration.internalId);
@@ -570,7 +571,7 @@ export class IntegrationService {
 
     const basePlatform = this.getLateBasePlatform(getIntegration.providerIdentifier);
     try {
-      const late = getLateApiInstance();
+      const late = await getLateApi(getIntegration.organizationId);
       let payload: any = [];
       if (basePlatform === 'instagram') {
         payload = await late.getInstagramAccountInsights(
@@ -643,7 +644,7 @@ export class IntegrationService {
     const basePlatform = this.getLateBasePlatform(getIntegration.providerIdentifier);
 
     try {
-      const late = getLateApiInstance();
+      const late = await getLateApi(getIntegration.organizationId);
       let payload: any = [];
       if (basePlatform === 'instagram') {
         payload = await late.getInstagramDemographics(
@@ -686,7 +687,7 @@ export class IntegrationService {
     if (basePlatform !== 'gmb' && basePlatform !== 'googlebusiness') return [];
 
     try {
-      const payload = await getLateApiInstance().getGBPPerformance(
+      const payload = await (await getLateApi(getIntegration.organizationId)).getGBPPerformance(
         getIntegration.internalId,
         startDate,
         endDate
@@ -730,7 +731,7 @@ export class IntegrationService {
     if (basePlatform !== 'gmb' && basePlatform !== 'googlebusiness') return [];
 
     try {
-      const payload = await getLateApiInstance().getGBPSearchKeywords(
+      const payload = await (await getLateApi(getIntegration.organizationId)).getGBPSearchKeywords(
         getIntegration.internalId,
         startMonth,
         endMonth

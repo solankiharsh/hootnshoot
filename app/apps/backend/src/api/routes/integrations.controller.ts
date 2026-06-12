@@ -32,6 +32,7 @@ import {
 } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
 import { uniqBy } from 'lodash';
 import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
+import { resolveOrgApiKey } from '@gitroom/nestjs-libraries/org-api-keys/org-api-key.store';
 
 @ApiTags('Integrations')
 @Controller('/integrations')
@@ -216,6 +217,14 @@ export class IntegrationsController {
       throw new Error('Missing external url');
     }
 
+    // BYOK gate: -late providers need a Late API key (org-scoped or server env)
+    if (integration.endsWith('-late')) {
+      const lateKey = await resolveOrgApiKey('late-api', org.id);
+      if (!lateKey) {
+        return { err: true, missingKey: 'late-api' };
+      }
+    }
+
     try {
       const getExternalUrl = integrationProvider.externalUrl
         ? {
@@ -225,7 +234,7 @@ export class IntegrationsController {
         : undefined;
 
       const { codeVerifier, state, url } =
-        await integrationProvider.generateAuthUrl(getExternalUrl);
+        await integrationProvider.generateAuthUrl(getExternalUrl, org.id);
 
       if (refresh) {
         await ioRedis.set(`refresh:${state}`, refresh, 'EX', 3600);

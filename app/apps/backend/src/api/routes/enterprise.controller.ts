@@ -76,7 +76,7 @@ export class EnterpriseController {
       );
 
       const { codeVerifier, state, url } =
-        await integrationProvider.generateAuthUrl();
+        await integrationProvider.generateAuthUrl(undefined, org.id);
 
       if (load.refreshId) {
         await ioRedis.set(`refresh:${state}`, load.refreshId, 'EX', 3600);

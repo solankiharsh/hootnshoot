@@ -88,25 +88,25 @@ export const socialIntegrationList: Array<SocialAbstract & SocialProvider> = [
   // new SkoolProvider(),
   // new MeweProvider(),
   // new MastodonCustomProvider(),
-  // Late API providers — only register when LATE_API_KEY is configured
-  ...(process.env.LATE_API_KEY ? [
-    new FacebookLateProvider(),
-    new InstagramLateProvider(),
-    new XLateProvider(),
-    new LinkedinLateProvider(),
-    new TiktokLateProvider(),
-    new YoutubeLateProvider(),
-    new RedditLateProvider(),
-    new ThreadsLateProvider(),
-    new WhatsAppLateProvider(),
-    new PinterestLateProvider(),
-    new MetaAdsLateProvider(),
-    new InstagramAdsLateProvider(),
-    new LinkedinAdsLateProvider(),
-    new TiktokAdsLateProvider(),
-    new GoogleAdsLateProvider(),
-    new XAdsLateProvider(),
-  ] : []),
+  // Late API providers — always registered (BYOK: each organization brings its
+  // own Late API key via Settings → API Keys; LATE_API_KEY env is the fallback).
+  // Key presence is enforced at connect time, not at boot.
+  new FacebookLateProvider(),
+  new InstagramLateProvider(),
+  new XLateProvider(),
+  new LinkedinLateProvider(),
+  new TiktokLateProvider(),
+  new YoutubeLateProvider(),
+  new RedditLateProvider(),
+  new ThreadsLateProvider(),
+  new WhatsAppLateProvider(),
+  new PinterestLateProvider(),
+  new MetaAdsLateProvider(),
+  new InstagramAdsLateProvider(),
+  new LinkedinAdsLateProvider(),
+  new TiktokAdsLateProvider(),
+  new GoogleAdsLateProvider(),
+  new XAdsLateProvider(),
 ];
 
 @Injectable()
@@ -120,7 +120,7 @@ export class IntegrationManager {
 
     const visibleList = socialIntegrationList.filter((p) => {
       // When a managed (-late) equivalent is registered, hide the direct provider
-      if (process.env.LATE_API_KEY && lateIdentifiers.has(p.identifier)) {
+      if (lateIdentifiers.has(p.identifier)) {
         return false;
       }
       return true;

@@ -1,5 +1,5 @@
 import { LateApiProvider } from '@gitroom/nestjs-libraries/integrations/social/late-api.provider';
-import { getLateApiInstance } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
+import { LateApiService } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
 
 export class GoogleAdsLateProvider extends LateApiProvider {
   identifier = 'google-ads-late';
@@ -12,7 +12,7 @@ export class GoogleAdsLateProvider extends LateApiProvider {
     return 2200;
   }
 
-  getConnectUrl(profileId: string, redirectUrl: string, state: string) {
-    return getLateApiInstance().getGoogleAdsConnectUrl(profileId, redirectUrl, state);
+  getConnectUrl(api: LateApiService, profileId: string, redirectUrl: string, state: string) {
+    return api.getGoogleAdsConnectUrl(profileId, redirectUrl, state);
   }
 }

@@ -1,5 +1,5 @@
 import { LateApiProvider } from '@gitroom/nestjs-libraries/integrations/social/late-api.provider';
-import { getLateApiInstance } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
+import { LateApiService } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
 
 export class LinkedinAdsLateProvider extends LateApiProvider {
   identifier = 'linkedin-ads-late';
@@ -12,7 +12,7 @@ export class LinkedinAdsLateProvider extends LateApiProvider {
     return 3000;
   }
 
-  getConnectUrl(profileId: string, redirectUrl: string, state: string) {
-    return getLateApiInstance().getLinkedInAdsConnectUrl(profileId, redirectUrl, state);
+  getConnectUrl(api: LateApiService, profileId: string, redirectUrl: string, state: string) {
+    return api.getLinkedInAdsConnectUrl(profileId, redirectUrl, state);
   }
 }

@@ -1,5 +1,5 @@
 import { LateApiProvider } from '@gitroom/nestjs-libraries/integrations/social/late-api.provider';
-import { getLateApiInstance } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
+import { LateApiService } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
 
 export class ThreadsLateProvider extends LateApiProvider {
   identifier = 'threads-late';
@@ -11,7 +11,7 @@ export class ThreadsLateProvider extends LateApiProvider {
     return 500;
   }
 
-  getConnectUrl(profileId: string, redirectUrl: string, state: string) {
-    return getLateApiInstance().getThreadsConnectUrl(profileId, redirectUrl, state);
+  getConnectUrl(api: LateApiService, profileId: string, redirectUrl: string, state: string) {
+    return api.getThreadsConnectUrl(profileId, redirectUrl, state);
   }
 }

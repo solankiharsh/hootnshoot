@@ -1,5 +1,5 @@
 import { LateApiProvider } from '@gitroom/nestjs-libraries/integrations/social/late-api.provider';
-import { getLateApiInstance } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
+import { LateApiService } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
 
 export class YoutubeLateProvider extends LateApiProvider {
   identifier = 'youtube-late';
@@ -11,7 +11,7 @@ export class YoutubeLateProvider extends LateApiProvider {
     return 5000;
   }
 
-  getConnectUrl(profileId: string, redirectUrl: string, state: string) {
-    return getLateApiInstance().getYouTubeConnectUrl(profileId, redirectUrl, state);
+  getConnectUrl(api: LateApiService, profileId: string, redirectUrl: string, state: string) {
+    return api.getYouTubeConnectUrl(profileId, redirectUrl, state);
   }
 }

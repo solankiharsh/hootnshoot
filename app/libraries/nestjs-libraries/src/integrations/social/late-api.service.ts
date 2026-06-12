@@ -1,4 +1,9 @@
 import { BadBody, RefreshToken } from '@gitroom/nestjs-libraries/integrations/social.abstract';
+import {
+  resolveOrgApiKey,
+  hasOrgScopedKey,
+} from '@gitroom/nestjs-libraries/org-api-keys/org-api-key.store';
+import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
 
 export interface LateAccount {
   _id: string;
@@ -23,7 +28,8 @@ export interface LatePagesResponse {
   cached: boolean;
 }
 
-const LATE_API_BASE_URL = 'https://getlate.dev/api/v1';
+const LATE_API_BASE_URL =
+  process.env.LATE_API_URL?.trim() || 'https://getlate.dev/api/v1';
 
 export class LateApiService {
   private apiKey: string;
@@ -396,40 +402,78 @@ export class LateApiService {
   }
 }
 
-let _instance: LateApiService | null = null;
+// BYOK: instances are keyed by the resolved API key. An organization with its
+// own key (Settings → API Keys) gets its own instance; orgs without one share
+// the env-key instance — identical to the old singleton behavior.
+const _instances = new Map<string, LateApiService>();
 
-export function getLateApiInstance(): LateApiService {
-  if (!_instance) {
-    if (!process.env.LATE_API_KEY) {
-      throw new Error('LATE_API_KEY is not set — add it to your .env to use managed providers');
-    }
-    _instance = new LateApiService(process.env.LATE_API_KEY);
+export async function getLateApi(organizationId?: string | null): Promise<LateApiService> {
+  const apiKey = await resolveOrgApiKey('late-api', organizationId);
+  if (!apiKey) {
+    throw new Error(
+      'No Late API key available — add one in Settings → API Keys, or set LATE_API_KEY in the server environment'
+    );
   }
-  return _instance;
+  let instance = _instances.get(apiKey);
+  if (!instance) {
+    instance = new LateApiService(apiKey);
+    _instances.set(apiKey, instance);
+  }
+  return instance;
 }
 
-// Cached singleton Late API profile ID — one profile is shared across all channel connections.
-// Creating a new profile per connection exhausts plan limits (Free = 2 profiles total).
+// Cached Late API profile IDs — one profile is shared across all channel
+// connections that use the same key. Creating a new profile per connection
+// exhausts plan limits (Free = 2 profiles total).
+// Env-key path: in-memory singleton (same as before BYOK).
+// Org-key path: cached in Redis per organization, invalidated on key change.
 let _sharedProfileId: string | null = null;
 
-export async function getOrCreateSharedProfile(): Promise<string> {
-  if (_sharedProfileId) return _sharedProfileId;
+const lateProfileCacheKey = (organizationId: string) => `late:profile:${organizationId}`;
 
+async function lookupOrCreateProfile(api: LateApiService): Promise<string> {
+  const existing = await api.listProfiles();
+  if (existing.length > 0) {
+    return existing[0]._id;
+  }
+  const created = await api.createProfile('hootnshoot');
+  console.log(`[LateAPI] Created profile ${created._id}`);
+  return created._id;
+}
+
+export async function getOrCreateProfile(organizationId?: string | null): Promise<string> {
+  const usesOrgKey = organizationId
+    ? await hasOrgScopedKey('late-api', organizationId)
+    : false;
+
+  if (organizationId && usesOrgKey) {
+    const cacheKey = lateProfileCacheKey(organizationId);
+    const cached = await ioRedis.get(cacheKey);
+    if (cached) return cached;
+    const api = await getLateApi(organizationId);
+    const profileId = await lookupOrCreateProfile(api);
+    await ioRedis.set(cacheKey, profileId);
+    return profileId;
+  }
+
+  // Env-key path — preserve the original shared-profile behavior exactly
+  if (_sharedProfileId) return _sharedProfileId;
   if (process.env.LATE_API_PROFILE_ID) {
     _sharedProfileId = process.env.LATE_API_PROFILE_ID;
     return _sharedProfileId;
   }
-
-  const api = getLateApiInstance();
-  const existing = await api.listProfiles();
-  if (existing.length > 0) {
-    _sharedProfileId = existing[0]._id;
-    console.log(`[LateAPI] Reusing existing profile ${_sharedProfileId} (set LATE_API_PROFILE_ID=${_sharedProfileId} to skip this lookup)`);
-    return _sharedProfileId;
-  }
-
-  const created = await api.createProfile('hootnshoot');
-  _sharedProfileId = created._id;
-  console.log(`[LateAPI] Created shared profile ${_sharedProfileId} — set LATE_API_PROFILE_ID=${_sharedProfileId} in your environment to avoid re-creating on restart`);
+  const api = await getLateApi();
+  _sharedProfileId = await lookupOrCreateProfile(api);
+  console.log(
+    `[LateAPI] Using shared profile ${_sharedProfileId} — set LATE_API_PROFILE_ID=${_sharedProfileId} to skip this lookup on restart`
+  );
   return _sharedProfileId;
+}
+
+export async function invalidateLateProfileCache(organizationId: string): Promise<void> {
+  try {
+    await ioRedis.del(lateProfileCacheKey(organizationId));
+  } catch {
+    /* best-effort */
+  }
 }

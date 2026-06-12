@@ -6,7 +6,7 @@ import {
 import { LateApiProvider } from '@gitroom/nestjs-libraries/integrations/social/late-api.provider';
 import { FacebookLateDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/facebook-late.dto';
 import { Integration } from '@prisma/client';
-import { getLateApiInstance } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
+import { getLateApi, LateApiService } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
 
 export class FacebookLateProvider extends LateApiProvider {
   identifier = 'facebook-late';
@@ -19,17 +19,17 @@ export class FacebookLateProvider extends LateApiProvider {
     return 63206;
   }
 
-  getConnectUrl(profileId: string, redirectUrl: string, state: string) {
-    return getLateApiInstance().getFacebookConnectUrl(profileId, redirectUrl, state);
+  getConnectUrl(api: LateApiService, profileId: string, redirectUrl: string, state: string) {
+    return api.getFacebookConnectUrl(profileId, redirectUrl, state);
   }
 
   // Override authenticate to auto-select the Facebook page chosen during Late API OAuth
-  override async authenticate(params: { code: string; codeVerifier: string; refresh?: string }): Promise<AuthTokenDetails> {
+  override async authenticate(params: { code: string; codeVerifier: string; refresh?: string; organizationId?: string }): Promise<AuthTokenDetails> {
     const base = await super.authenticate(params);
     const lateAccountId = base.accessToken;
 
     // The Late API OAuth page already had the user select a page — use that selection
-    const { pages, selectedPageId } = await getLateApiInstance().getFacebookPages(lateAccountId);
+    const { pages, selectedPageId } = await (await getLateApi(params.organizationId)).getFacebookPages(lateAccountId);
     const pageId = selectedPageId || pages[0]?.id;
     const page = pages.find((p) => p.id === pageId) || pages[0];
 
@@ -49,10 +49,11 @@ export class FacebookLateProvider extends LateApiProvider {
     postDetails: PostDetails[],
     _integration: Integration
   ): Promise<PostResponse[]> {
+    const api = await getLateApi(_integration.organizationId);
     return Promise.all(
       postDetails.map(async (p) => {
         const settings = p.settings || {};
-        const result = await getLateApiInstance().createPost({
+        const result = await api.createPost({
           platforms: [
             {
               platform: 'facebook',

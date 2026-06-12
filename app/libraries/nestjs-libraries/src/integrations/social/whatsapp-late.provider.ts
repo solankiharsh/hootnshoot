@@ -1,5 +1,5 @@
 import { LateApiProvider } from '@gitroom/nestjs-libraries/integrations/social/late-api.provider';
-import { getLateApiInstance } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
+import { LateApiService } from '@gitroom/nestjs-libraries/integrations/social/late-api.service';
 
 export class WhatsAppLateProvider extends LateApiProvider {
   identifier = 'whatsapp-late';
@@ -12,7 +12,7 @@ export class WhatsAppLateProvider extends LateApiProvider {
     return 4096;
   }
 
-  getConnectUrl(profileId: string, redirectUrl: string, state: string) {
-    return getLateApiInstance().getWhatsAppConnectUrl(profileId, redirectUrl, state);
+  getConnectUrl(api: LateApiService, profileId: string, redirectUrl: string, state: string) {
+    return api.getWhatsAppConnectUrl(profileId, redirectUrl, state);
   }
 }

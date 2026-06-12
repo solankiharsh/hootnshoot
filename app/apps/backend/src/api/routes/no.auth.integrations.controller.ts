@@ -111,6 +111,7 @@ export class NoAuthIntegrationsController {
             code: body.code,
             codeVerifier: getCodeVerifier,
             refresh: body.refresh,
+            organizationId: organization,
           },
           details ? JSON.parse(details) : undefined
         );
@@ -355,6 +356,7 @@ export class NoAuthIntegrationsController {
     const authResult = await integrationProvider.authenticate({
       code: body.cookies,
       codeVerifier: '',
+      organizationId,
     });
 
     if (typeof authResult === 'string') {
