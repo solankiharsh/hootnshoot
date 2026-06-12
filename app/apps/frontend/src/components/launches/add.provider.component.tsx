@@ -19,6 +19,7 @@ import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import clsx from 'clsx';
 import copy from 'copy-to-clipboard';
 import { capitalize } from 'lodash';
+import { ApiKeyModal } from '@gitroom/frontend/components/settings/api-keys.component';
 const resolver = classValidatorResolver(ApiKeyDto);
 
 export const useAddProvider = (update?: () => void, invite?: boolean) => {
@@ -457,11 +458,37 @@ export const AddProviderComponent: FC<{
           ]
             .filter(Boolean)
             .join('&');
-          const { url, err } = await (
+          const { url, err, missingKey } = await (
             await fetch(
               `/integrations/social/${identifier}${params ? `?${params}` : ''}`
             )
           ).json();
+          if (err && missingKey === 'late-api') {
+            // BYOK: this workspace has no Late API key yet — ask for it inline
+            // and retry the connection once it's saved.
+            modal.openModal({
+              title: t('late_api_key_needed', 'Add your Late API key'),
+              withCloseButton: true,
+              children: (
+                <ApiKeyModal
+                  slot={{
+                    identifier: 'late-api',
+                    label: 'Late API',
+                    description: t(
+                      'late_api_key_explainer',
+                      'Managed channels publish through getlate.dev. Add your own Late API key to connect this channel — it is stored encrypted and only used by your workspace.'
+                    ),
+                    docsUrl: 'https://getlate.dev',
+                    configured: false,
+                    hasServerDefault: false,
+                    maskedKey: null,
+                  }}
+                  update={() => gotoIntegration(externalUrl)}
+                />
+              ),
+            });
+            return;
+          }
           if (err) {
             toaster.show(
               t(
