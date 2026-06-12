@@ -26,6 +26,7 @@ import {
   verifyGener8JobToken,
 } from '@gitroom/nestjs-libraries/3rdparties/gener8/gener8-job-token';
 import { PostUploadDecomposeService } from '@gitroom/nestjs-libraries/templates/post-upload-decompose.service';
+import { ORG_API_KEY_IDENTIFIERS } from '@gitroom/nestjs-libraries/org-api-keys/org-api-key.constants';
 
 @ApiTags('Third Party')
 @Controller('/third-party')
@@ -59,7 +60,9 @@ export class ThirdPartyController {
       .getAllThirdParties()
       .filter(
         (p: { identifier: string }) =>
-          p.identifier !== 'gener8' && p.identifier !== 'aurora'
+          p.identifier !== 'gener8' &&
+          p.identifier !== 'aurora' &&
+          !ORG_API_KEY_IDENTIFIERS.includes(p.identifier)
       );
   }
 
@@ -76,7 +79,13 @@ export class ThirdPartyController {
         await this._thirdPartyManager.getAllThirdPartiesByOrganization(
           organization.id
         )
-      ).map((thirdParty) => {
+      )
+        .filter(
+          // BYOK org API keys (Settings → API Keys) are stored in the same
+          // table but are not third-party menu integrations
+          (thirdParty) => !ORG_API_KEY_IDENTIFIERS.includes(thirdParty.identifier)
+        )
+        .map((thirdParty) => {
         const registered = this._thirdPartyManager.getThirdPartyByName(
           thirdParty.identifier
         );

@@ -42,6 +42,7 @@ import { AnnouncementsRepository } from '@gitroom/nestjs-libraries/database/pris
 import { AnnouncementsService } from '@gitroom/nestjs-libraries/database/prisma/announcements/announcements.service';
 import { TemplateRepository } from '@gitroom/nestjs-libraries/database/prisma/templates/template.repository';
 import { TemplateService } from '@gitroom/nestjs-libraries/database/prisma/templates/template.service';
+import { OrgApiKeyService } from '@gitroom/nestjs-libraries/org-api-keys/org-api-key.service';
 
 @Global()
 @Module({
@@ -93,6 +94,7 @@ import { TemplateService } from '@gitroom/nestjs-libraries/database/prisma/templ
     AnnouncementsService,
     TemplateRepository,
     TemplateService,
+    OrgApiKeyService,
   ],
   get exports() {
     return this.providers;

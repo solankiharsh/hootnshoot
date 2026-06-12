@@ -52,6 +52,7 @@ import { FarcasterProvider } from '@gitroom/backend/services/auth/providers/farc
 import { WalletProvider } from '@gitroom/backend/services/auth/providers/wallet.provider';
 import { OauthProvider } from '@gitroom/backend/services/auth/providers/oauth.provider';
 import { BrandAssetsController } from '@gitroom/backend/api/routes/supabase/brand-assets';
+import { ApiKeysController } from '@gitroom/backend/api/routes/api-keys.controller';
 
 const authenticatedController = [
   UsersController,
@@ -70,6 +71,7 @@ const authenticatedController = [
   AutopostController,
   SetsController,
   ThirdPartyController,
+  ApiKeysController,
   OAuthAppController,
   ApprovedAppsController,
   OAuthAuthorizedController,
