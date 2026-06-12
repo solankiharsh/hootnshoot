@@ -1,0 +1,14 @@
+{
+  "name": "hootnshoot-backend",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "node -r ../../load-env.cjs ../../node_modules/@nestjs/cli/bin/nest.js start --watch --entryFile=./apps/backend/src/main",
+    "build": "rm -rf dist && cd ../.. && cross-env NODE_ENV=production swc apps/backend/src libraries/nestjs-libraries/src libraries/helpers/src -d apps/backend/dist --config-file apps/backend/.swcrc",
+    "start": "node ../../var/docker/runtime-diagnostics.cjs backend ./dist/apps/backend/src/main.js && TS_NODE_PROJECT=../../tsconfig.base.json TS_NODE_BASEURL=$(pwd)/dist node -r ../../load-env.cjs -r tsconfig-paths/register --experimental-require-module ./dist/apps/backend/src/main.js",
+    "pm2": "pm2 start pnpm --name backend --cwd \"$PWD\" -- start"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

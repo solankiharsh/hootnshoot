@@ -1,0 +1,14 @@
+{
+  "name": "hootnshoot-orchestrator",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "node -r ../../load-env.cjs ../../node_modules/@nestjs/cli/bin/nest.js start --watch --entryFile=./apps/orchestrator/src/main",
+    "build": "rm -rf dist && cd ../.. && cross-env NODE_ENV=production swc apps/orchestrator/src apps/backend/src libraries/nestjs-libraries/src libraries/helpers/src -d apps/orchestrator/dist --config-file apps/orchestrator/.swcrc",
+    "start": "node ../../var/docker/runtime-diagnostics.cjs orchestrator ./dist/apps/orchestrator/src/main.js && TS_NODE_PROJECT=../../tsconfig.base.json TS_NODE_BASEURL=$(pwd)/dist node -r ../../load-env.cjs -r tsconfig-paths/register --experimental-require-module ./dist/apps/orchestrator/src/main.js",
+    "pm2": "pm2 start pnpm --name orchestrator --cwd \"$PWD\" -- start"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

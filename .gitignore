@@ -1,0 +1,88 @@
+# --- Local environment & secrets ---
+.env
+.env.local
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
+!.env.example
+!.env.sample
+.env.content-cop.local.example
+# Python
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+graphify-out
+
+# Node
+node_modules/
+**/node_modules/
+.pnpm-store/
+.corepack/
+
+# Build / cache
+dist/
+**/dist/
+.turbo/
+*.tsbuildinfo
+coverage/
+**/coverage/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# Keys & credential blobs
+*.pem
+*.p12
+*.pfx
+*.key
+id_rsa
+id_rsa.*
+**/credentials.json
+**/client_secret*.json
+.git-credentials
+
+# Security / dependency scan outputs
+docs/trivy_report.txt
+**/trivy_report*.txt
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+!*.tfvars.example
+
+# Local IDE / personal (repo-specific)
+.vscode
+
+# Local data & scripts that must not be committed
+.local/
+scripts/twitter_posting.py
+scripts/gener8
+docs/gener8-docs.txt
+
+# OS
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# Graphify (local knowledge graph — regenerate with `graphify update`)
+graphify-out/
+.graphify/
+**/.graphify_*
+**/.graphify_labels.json
+**/.graphify_root
+**/.rebuild.lock
+
+
+secrets.json
+TESTING

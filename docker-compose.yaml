@@ -1,0 +1,165 @@
+services:
+  hootnshoot:
+    container_name: hootnshoot
+    build:
+      context: ./app
+      dockerfile: Dockerfile.dev
+      args:
+        - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL:-http://localhost:4007/api}
+    image: hootnshoot
+    environment:
+      MAIN_URL: ${MAIN_URL:-http://localhost:4007}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:4007}
+      NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL:-http://localhost:4007/api}
+      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: ${DATABASE_URL}
+      DIRECT_DATABASE_URL: ${DIRECT_DATABASE_URL}
+      REDIS_URL: ${REDIS_URL:-redis://hootnshoot-redis:6379}
+      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://localhost:3000}
+      TEMPORAL_ADDRESS: ${TEMPORAL_ADDRESS:-temporal:7233}
+      IS_GENERAL: ${IS_GENERAL:-true}
+      DISABLE_REGISTRATION: ${DISABLE_REGISTRATION:-false}
+      RUN_CRON: ${RUN_CRON:-true}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-supabase}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_STORAGE_BUCKET: ${SUPABASE_STORAGE_BUCKET}
+      SUPABASE_BRAND_ASSETS_BUCKET: ${SUPABASE_BRAND_ASSETS_BUCKET:-assets}
+      MASTODON_URL: ${MASTODON_URL:-https://mastodon.social}
+      API_LIMIT: ${API_LIMIT:-30}
+      NX_ADD_PLUGINS: ${NX_ADD_PLUGINS:-false}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
+      FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      NOT_SECURED: ${NOT_SECURED:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # Late API — required for instagram-late, facebook-late, x-late, tiktok-late, etc.
+      LATE_API_KEY: ${LATE_API_KEY:-}
+      LATE_API_URL: ${LATE_API_URL:-https://getlate.dev/api/v1}
+      # Social OAuth credentials
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
+      LINKEDIN_PAGE_CLIENT_ID: ${LINKEDIN_PAGE_CLIENT_ID:-}
+      LINKEDIN_PAGE_CLIENT_SECRET: ${LINKEDIN_PAGE_CLIENT_SECRET:-}
+      X_CLIENT_ID: ${X_CLIENT_ID:-}
+      X_CLIENT_SECRET: ${X_CLIENT_SECRET:-}
+      TELEGRAM_TOKEN: ${TELEGRAM_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      GENER8_API_KEY: ${GENER8_API_KEY:-}
+      COMPLIANCE_ENABLED: ${COMPLIANCE_ENABLED:-true}
+      CONTENT_COP_API_KEY: ${CONTENT_COP_API_KEY:-}
+      CONTENT_COP_BASE_URL: ${CONTENT_COP_BASE_URL:-}
+      DD_ENV: ${DD_ENV:-preview}
+      DD_SERVICE: hootnshoot
+      DD_VERSION: ${DD_VERSION:-local}
+    ports:
+      - "4007:5000"
+    restart: always
+    labels:
+      com.datadoghq.tags.env: ${DD_ENV:-preview}
+      com.datadoghq.tags.service: hootnshoot
+      com.datadoghq.tags.version: ${DD_VERSION:-local}
+      com.datadoghq.ad.logs: '[{"source":"nodejs","service":"hootnshoot"}]'
+    volumes:
+      - hootnshoot-config:/config/
+    depends_on:
+      hootnshoot-redis:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+
+  hootnshoot-redis:
+    container_name: hootnshoot-redis
+    image: public.ecr.aws/docker/library/redis:7.2
+    labels:
+      com.datadoghq.tags.env: ${DD_ENV:-preview}
+      com.datadoghq.tags.service: hootnshoot-redis
+      com.datadoghq.tags.version: "7.2"
+      com.datadoghq.ad.logs: '[{"source":"redis","service":"hootnshoot-redis"}]'
+    restart: always
+    volumes:
+      - hootnshoot-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  temporal-elasticsearch:
+    container_name: temporal-elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.27
+    environment:
+      cluster.routing.allocation.disk.threshold_enabled: "true"
+      cluster.routing.allocation.disk.watermark.low: 512mb
+      cluster.routing.allocation.disk.watermark.high: 256mb
+      cluster.routing.allocation.disk.watermark.flood_stage: 128mb
+      discovery.type: single-node
+      ES_JAVA_OPTS: -Xms256m -Xmx256m
+      xpack.security.enabled: "false"
+    volumes:
+      - temporal-elasticsearch-data:/usr/share/elasticsearch/data
+
+  temporal-postgresql:
+    container_name: temporal-postgresql
+    image: public.ecr.aws/docker/library/postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${TEMPORAL_POSTGRES_PASSWORD}
+      POSTGRES_USER: temporal
+    volumes:
+      - temporal-postgresql-data:/var/lib/postgresql/data
+
+  temporal:
+    container_name: temporal
+    build:
+      context: ./docker/temporal-mirror
+    image: temporal
+    labels:
+      com.datadoghq.tags.env: ${DD_ENV:-preview}
+      com.datadoghq.tags.service: temporal
+      com.datadoghq.tags.version: "1.28.1"
+      com.datadoghq.ad.logs: '[{"source":"temporal","service":"temporal"}]'
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: ${TEMPORAL_POSTGRES_PASSWORD}
+      POSTGRES_SEEDS: temporal-postgresql
+      ENABLE_ES: "true"
+      ES_SEEDS: temporal-elasticsearch
+      ES_VERSION: v7
+      TEMPORAL_NAMESPACE: default
+    ports:
+      - "7233:7233"
+    depends_on:
+      - temporal-postgresql
+      - temporal-elasticsearch
+
+  datadog-agent:
+    image: gcr.io/datadoghq/agent:7
+    container_name: datadog-agent
+    profiles:
+      - datadog
+    restart: unless-stopped
+    environment:
+      DD_API_KEY: ${DD_API_KEY:-}
+      DD_SITE: ${DD_SITE:-datadoghq.com}
+      DD_ENV: ${DD_ENV:-preview}
+      DD_LOGS_ENABLED: "true"
+      DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL: "true"
+      DD_CONTAINER_EXCLUDE: "name:datadog-agent"
+      DD_PROCESS_AGENT_ENABLED: "true"
+      DD_DOCKER_LABELS_AS_TAGS: '{"com.datadoghq.tags.service":"service","com.datadoghq.tags.env":"env","com.datadoghq.tags.version":"version"}'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+
+volumes:
+  hootnshoot-redis-data:
+  hootnshoot-config:
+  temporal-elasticsearch-data:
+  temporal-postgresql-data:

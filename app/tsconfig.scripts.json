@@ -1,0 +1,16 @@
+{
+  "extends": "./apps/backend/tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "target": "ES2021",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "skipLibCheck": true,
+    "strictNullChecks": false,
+    "noImplicitAny": false,
+    "outDir": "/tmp/scripts-dist"
+  },
+  "include": ["scripts/**/*", "libraries/**/*"]
+}
